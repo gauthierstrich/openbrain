@@ -183,7 +183,7 @@ def ask_gemini(prompt: str) -> str:
     try:
         # On force l'utilisation de Gemini 3 Flash / 3.1 Pro pour l'agent personnel
         result = subprocess.run(
-            ["gemini", "-p", prompt, "-y", "-m", "gemini-3-flash"],
+            ["gemini", "-p", prompt, "-y", "-m", "gemini-3-flash-preview"],
             capture_output=True,
             text=True,
             timeout=180,  # Plus long pour Telegram si nécessaire
