@@ -21,7 +21,7 @@ graph TD
     ContextBuilder --> History[History Summary]
     Memory -.-> Brain
     History -.-> Brain
-    Brain --> Gemini[Gemini 1.5 Flash/Pro]
+    Brain --> Gemini[Gemini 3 Flash / 3.1 Pro]
     Gemini --> Brain
     Brain --> Log[Daily Log / History Update]
     Brain --> Response[Final Response]

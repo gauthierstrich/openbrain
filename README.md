@@ -4,7 +4,7 @@
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Status: v1.5.0](https://img.shields.io/badge/Status-v1.5.0-green.svg)]()
 
-> **OpenBrain** is a high-fidelity, modular agentic ecosystem designed to manage your life history, academic goals, and professional aspirations through a locally-hosted "Second Brain" interface. Powered by **Gemini 1.5**, it bridges the gap between static notes and proactive digital assistance.
+> **OpenBrain** is a high-fidelity, modular agentic ecosystem designed to manage your life history, academic goals, and professional aspirations through a locally-hosted "Second Brain" interface. Powered by **Gemini 3 Flash & 3.1 Pro**, it bridges the gap between static notes and proactive digital assistance.
 
 ---
 
@@ -27,7 +27,7 @@ graph LR
     User([User]) <--> UI[CLI / Telegram]
     UI <--> Brain[Brain Core]
     Brain <--> FS[(Second Brain FS)]
-    Brain <--> LLM[Gemini 1.5 Flash/Pro]
+    Brain <--> LLM[Gemini 3 Flash & 3.1 Pro]
     FS --- Index[Global Index]
     FS --- Facts[Semantic Facts]
     FS --- Logs[Episodic Journal]

@@ -181,9 +181,9 @@ def build_context(user_message: str, history: list) -> str:
 def ask_gemini(prompt: str) -> str:
     """Appelle Gemini CLI en mode non-interactif."""
     try:
-        # On force l'utilisation de Gemini 3 Flash pour l'agent personnel
+        # On force l'utilisation de Gemini 3 Flash / 3.1 Pro pour l'agent personnel
         result = subprocess.run(
-            ["gemini", "-p", prompt, "-y", "-m", "gemini-3-flash-preview"],
+            ["gemini", "-p", prompt, "-y", "-m", "gemini-3-flash"],
             capture_output=True,
             text=True,
             timeout=180,  # Plus long pour Telegram si nécessaire
@@ -269,6 +269,7 @@ Décide s'il est pertinent de lui envoyer un message TOUT DE SUITE pour :
 - **FORMATAGE :** Pas de titres `#`, utilise du **gras**.
 - Si rien n'est urgent ou pertinent pour l'instant : Réponds EXACTEMENT "NONE" (sans rien d'autre).
 - Ne sois pas intrusif. N'envoie un message que si cela apporte une vraie valeur à Gauthier.
+> **OpenBrain** is a high-fidelity, modular agentic ecosystem designed to manage your life history, academic goals, and professional aspirations through a locally-hosted "Second Brain" interface. Powered by **Gemini 3 Flash & 3.1 Pro**, it bridges the gap between static notes and proactive digital assistance.
 """
     response = ask_gemini(prompt)
     
