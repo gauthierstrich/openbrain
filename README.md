@@ -3,8 +3,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Status: v1.5.0](https://img.shields.io/badge/Status-v1.5.0-green.svg)]()
+[![OS: macOS & Ubuntu](https://img.shields.io/badge/OS-macOS%20%26%20Ubuntu-orange.svg)]()
 
-> **OpenBrain** is a high-fidelity, modular agentic ecosystem designed to manage your life history, academic goals, and professional aspirations through a locally-hosted "Second Brain" interface. Powered by **Gemini 3 Flash & 3.1 Pro**, it bridges the gap between static notes and proactive digital assistance.
+> **OpenBrain** is a high-fidelity, modular agentic ecosystem designed to manage your life history, academic goals, and professional aspirations through a locally-hosted "Second Brain" interface. Compatible with **macOS** and **Linux (Ubuntu)**, and powered by **Gemini 3 Flash & 3.1 Pro**, it bridges the gap between static notes and proactive digital assistance.
+
 
 ---
 
@@ -41,36 +43,56 @@ graph LR
 ## 🛠️ Getting Started (Zero-Friction Install)
 
 ### 1. Prerequisites
-*   macOS (for Apple Reminders sync)
-*   Python 3.10+
-*   [gemini-cli](https://github.com/google-gemini/gemini-cli) installed and configured on your system.
+*   **macOS** (Required for Apple Reminders sync and native automation).
+*   **Python 3.10+**
+*   **[gemini-cli](https://github.com/google-gemini/gemini-cli)** installed and configured (`gemini login`).
 
-### 2. Quick Install
+### 2. Interactive Installation (The Wizard)
+OpenBrain features a professional, interactive installation assistant that configures your environment in seconds.
+
 ```bash
 git clone https://github.com/gauthierstrich/OpenBrain.git
 cd OpenBrain
-./scripts/setup.sh
+bash scripts/setup.sh
 ```
 
-### 3. Environment Configuration
-Copy the `.env.example` to `.env` and fill in your credentials:
+> [!TIP]
+> The Wizard will ask for your **Second Brain location**, your **Telegram Bot Tokens**, and your **ID**. It handles all the `.env` configuration and folder creation for you.
+
+---
+
+## 🚀 Launching the Brain
+
+OpenBrain supports multiple agents running in parallel, each with its own Telegram interface.
+
+### A. One-Click Launch (Recommended)
+Launch all your agents (Personal Assistant + Specialists) simultaneously:
 ```bash
-# Telegram Bot Token from @BotFather
-TELEGRAM_BOT_TOKEN=8739138090:your_token
-# Your numeric Telegram ID
-ALLOWED_USER_ID=2003436311
-# The local path where your Second Brain lives
-BRAIN_STORAGE_PATH=~/Documents/Second Brain/OpenBrain
+bash scripts/start_agents.sh
 ```
 
-### 4. Launching the Brain
+### B. Manual Agent Launch
+You can also launch agents individually:
 ```bash
-# Terminal Mode (CLI)
+# Telegram: Personal Assistant
+python3 src/main_telegram.py PERSONAL
+
+# Telegram: AC20 Specialist (Data Science)
+python3 src/main_telegram.py AC20
+
+# Terminal: Personal Assistant (CLI Mode)
 python3 src/main_cli.py
-
-# Telegram Mode (Proactive Bot)
-python3 src/main_telegram.py
 ```
+
+---
+
+## 🤖 Multi-Agent Ecosystem
+
+OpenBrain is designed for modular intelligence.
+1.  **Personal Assistant**: Manages your life, agenda, and high-level strategy.
+2.  **Specialist Agents**: Experts in specific subjects (e.g., **AC20** for Data Science & Finance).
+3.  **Cross-Agent Memory**: The Personal Assistant has "read-only" access to the progress files of all specialists to help you build global revision plans.
+
 
 ---
 

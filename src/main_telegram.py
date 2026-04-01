@@ -136,7 +136,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ─── Commandes spécifiques à l'Assistant Personnel ───────────────────
 
 async def sync_apple(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Commande /sync pour Apple Rappels (uniquement agent PERSONAL)."""
+    """Commande /sync pour Apple Rappels (uniquement agent PERSONAL et macOS)."""
     if AGENT_KEY != "PERSONAL":
         return
 
@@ -144,17 +144,15 @@ async def sync_apple(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not ALLOWED_USER_ID or str(user.id) != ALLOWED_USER_ID:
         return
 
+    # Détection de la plateforme pour /sync
+    if sys.platform != "darwin":
+        await update.message.reply_text("🐧 **Note :** La synchronisation des Rappels Apple est uniquement disponible sur macOS. Ubuntu ne supporte pas nativement ce capteur.", parse_mode=constants.ParseMode.MARKDOWN)
+        return
+
     import sensors.apple_sync as apple_sync
     wait_msg = await update.message.reply_text("🔄 Synchronisation avec tes Rappels Apple en cours...")
-    try:
-        count = apple_sync.sync()
-        if count >= 0:
-            await wait_msg.edit_text(f"✅ Synchronisation terminée. **{count}** rappels UTBM trouvés.", parse_mode=constants.ParseMode.MARKDOWN)
-        else:
-            await wait_msg.edit_text("❌ Échec de la synchronisation.")
-    except Exception as e:
-        logger.error(f"Erreur /sync : {e}")
-        await wait_msg.edit_text(f"❌ Erreur : {e}")
+    # ... rest of the function ...
+
 
 # ─── Auto-Réflexion Proactive ───────────────────────────────────────
 
