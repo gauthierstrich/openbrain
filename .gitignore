@@ -2,10 +2,9 @@
 .env
 secret.json
 
-# User Data (Mettez-le en commentaire si vous voulez sauvegarder vos données dans Git)
-# data/facts/
-# data/history/
-# data/daily/
+# User Data (Ignored by default for privacy)
+memory/
+agents/
 
 # Python cache
 __pycache__/
@@ -16,3 +15,5 @@ __pycache__/
 .DS_Store
 Thumbs.db
 logs/
+.obsidian/
+OpenBrain_Core_Dev/

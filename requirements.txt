@@ -1,5 +1,5 @@
 # Python Dependencies
-python-telegram-bot
-python-dotenv
-apscheduler
-# gemini-cli must be installed as a system tool
+python-telegram-bot>=20.0
+python-dotenv>=1.0.0
+apscheduler>=3.10.0
+# gemini-cli must be installed as a system tool (npm or brew)

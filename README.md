@@ -1,115 +1,51 @@
-# OpenBrain 🧠 — Your Personal Agentic Second Brain
+# OpenBrain Core 🧠 — The Cognitive Operating System
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python: 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Status: v1.5.0](https://img.shields.io/badge/Status-v1.5.0-green.svg)]()
-[![OS: macOS & Ubuntu](https://img.shields.io/badge/OS-macOS%20%26%20Ubuntu-orange.svg)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Status: v2.1.0](https://img.shields.io/badge/Status-v2.1.0-emerald.svg)]()
+[![Model: Gemini 3 Flash / 3.1 Pro](https://img.shields.io/badge/Powered%20By-Gemini-orange.svg)]()
 
-> **OpenBrain** is a high-fidelity, modular agentic ecosystem designed to manage your life history, academic goals, and professional aspirations through a locally-hosted "Second Brain" interface. Compatible with **macOS** and **Linux (Ubuntu)**, and powered by **Gemini 3 Flash & 3.1 Pro**, it bridges the gap between static notes and proactive digital assistance.
-
+> **OpenBrain Core** is a decentralized, high-fidelity agentic framework designed to bridge the gap between static human memory and proactive digital autonomy. Built for high-rigor environments (Academic Research, Quant Finance, Strategy), it empowers users to host, curate, and evolve their personal intelligence.
 
 ---
 
-## 🌟 Key Features
+## 🏗️ The Architectural Triad: High-Furity Modular State
+OpenBrain rejects monolithic agent design. Every instance is built on three atomic pillars:
+- **`soul.md` (The Purpose)**: Defines the core identity, mission parameters, and behavioral constraints of the agent.
+- **`user.md` (The Protocol)**: Stores human-specific preferences, communication styles, and interaction rules.
+- **`memory/` (The Semantic Core)**: An autonomous, markdown-based knowledge base that evolves through proactive ingestion and "YOLO" learning.
 
-*   **Modular Semantic Memory**: A hierarchical knowledge base built on human-readable Markdown. Optimized for high-recall RAG without the overhead of heavy vector databases.
-*   **macOS Deep Integration**: Real-time synchronization with **Apple Reminders**, system monitoring, and terminal automation.
-*   **Multi-Interface Orchestration**: Use it via a high-performance **CLI (Terminal)** or a proactive, mobile-ready **Telegram Bot**.
-*   **Proactive Reflection**: The agent autonomously analyzes your goals (e.g., UTBM CC3 schedules, Quant Finance research) and chooses the right moment to intervene and support you.
-*   **Rolling-Window Context**: Intelligent conversation summarization ensures it never forgets your long-term facts while staying lean on token costs.
-
----
-
-## 🏗️ System Architecture
-
-OpenBrain follows a **memory-centric** architectural pattern, separating logic from state.
-
-```mermaid
-graph LR
-    User([User]) <--> UI[CLI / Telegram]
-    UI <--> Brain[Brain Core]
-    Brain <--> FS[(Second Brain FS)]
-    Brain <--> LLM[Gemini 3 Flash & 3.1 Pro]
-    FS --- Index[Global Index]
-    FS --- Facts[Semantic Facts]
-    FS --- Logs[Episodic Journal]
-```
-
-> [!NOTE]
-> For a deep dive into the underlying data flow and memory stratification, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+## 🚀 Native Intelligence: Zero-Bridge Execution
+Unlike legacy systems that rely on fragile tool-calling wrappers, OpenBrain Core leverages **Native System Access** via the Gemini CLI. 
+- **Tool-Agnostic Actions**: Agents autonomously READ, WRITE, and EXPLORE your local file system to store facts and retrieve context.
+- **Autonomous Learning**: When the system encounters new information, it proactively structures it into its semantic facts (`memory/facts/`) without user intervention.
 
 ---
 
-## 🛠️ Getting Started (Zero-Friction Install)
+## 🛠️ Installation & Setup (Architecture-Led)
+**OpenBrain Core** is designed for extreme ergonomics. You don't configure files; you talk to the **Architect**.
 
-### 1. Prerequisites
-*   **macOS** (Required for Apple Reminders sync and native automation).
-*   **Python 3.10+**
-*   **[gemini-cli](https://github.com/google-gemini/gemini-cli)** installed and configured (`gemini login`).
+### 1. Requirements
+- **macOS** (Preferred) or Linux.
+- **Python 3.10+**
+- **[gemini-cli](https://github.com/google-gemini/gemini-cli)** (Standard configuration).
 
-### 2. Interactive Installation (The Wizard)
-OpenBrain features a professional, interactive installation assistant that configures your environment in seconds.
-
+### 2. Initialization
+Clone the repository and run the supervisor:
 ```bash
-git clone https://github.com/gauthierstrich/OpenBrain.git
-cd OpenBrain
-bash scripts/setup.sh
+git clone https://github.com/gauthierstrich/openbrain.git
+cd openbrain
+python3 scripts/ob-start.py
 ```
 
-> [!TIP]
-> The Wizard will ask for your **Second Brain location**, your **Telegram Bot Tokens**, and your **ID**. It handles all the `.env` configuration and folder creation for you.
+### 3. The Onboarding (The Architect)
+Once the supervisor is running, the **Architect Bot** (via Telegram) will guide you through the creation of your first Personal Assistant. No manual `.env` editing or folder creation required.
 
 ---
 
-## 🚀 Launching the Brain
-
-OpenBrain supports multiple agents running in parallel, each with its own Telegram interface.
-
-### A. One-Click Launch (Recommended)
-Launch all your agents (Personal Assistant + Specialists) simultaneously:
-```bash
-bash scripts/start_agents.sh
-```
-
-### B. Manual Agent Launch
-You can also launch agents individually:
-```bash
-# Telegram: Personal Assistant
-python3 src/main_telegram.py PERSONAL
-
-# Telegram: AC20 Specialist (Data Science)
-python3 src/main_telegram.py AC20
-
-# Terminal: Personal Assistant (CLI Mode)
-python3 src/main_cli.py
-```
+## 📖 Deep Documentation
+For advanced configurations and technical blueprints, see our internal documentation:
+- [**The OpenBrain Manifesto**](MANIFESTO.md): Philosophical foundations.
+- [**Technical Architecture**](docs/ARCHITECTURE.md): Deep-dive into memory orchestration.
 
 ---
-
-## 🤖 Multi-Agent Ecosystem
-
-OpenBrain is designed for modular intelligence.
-1.  **Personal Assistant**: Manages your life, agenda, and high-level strategy.
-2.  **Specialist Agents**: Experts in specific subjects (e.g., **AC20** for Data Science & Finance).
-3.  **Cross-Agent Memory**: The Personal Assistant has "read-only" access to the progress files of all specialists to help you build global revision plans.
-
-
----
-
-## 📖 Philosophical Core
-
-OpenBrain is not a toy; it is an extension of your cognitive capacity. It adheres to three strict rules:
-1.  **Privacy First**: Your memory lives on your machine, not in a cloud database.
-2.  **Human Clarity**: All memory is stored in Markdown, readable by you at any time.
-3.  **Strategic Support**: The agent focuses on your higher-level goals (Academic Excellence, Quant Fund Management) over trivial tasks.
-
----
-
-## 🤝 Contributing & License
-
-We value high-quality contributions. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
-
-Distributed under the **MIT License**. See `LICENSE` for more information.
-
----
-*Created by **Gauthier Strich** — UTBM TC4 Student & Quantitative Research Enthusiast.*
+*Open Source for Human Progress. Engineered by Gauthier Strich.*
