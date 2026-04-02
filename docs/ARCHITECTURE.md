@@ -139,13 +139,13 @@ On each inference call, the brain constructs a single text prompt by concatenati
 | Agent soul | `soul.md` | Unbounded |
 | Global user profile | `identity/user.md` | Unbounded |
 | Agent user preferences | `user.md` | Unbounded |
-| Knowledge base content | **All `memory/facts/*.md`** | **~6000 chars total** (V2.0 injection) |
-| Recent Journals | **Today & Yesterday Journals** | Unbounded (V2.0 reload) |
+| Knowledge base content | **Hybrid Retrieval** | **SQLite FTS5 + Vectors** (V2.1) |
+| Recent Journals | **Daily logs** | Indexed & Searchable (V2.1) |
 | Episodic summary | `history/history_summary.txt` | Unbounded |
 | Recent history | Last 15 turns from JSON | Unbounded |
 | Current message | User input | Unbounded |
 
-V2.0 ensures the agent "knows" what happened yesterday and has all its facts directly in mind, without having to manually search for them.
+V2.1 ensures the agent "knows" what happened yesterday and has all its facts directly in mind via a weighted hybrid search, without having to manually search for them.
 
 ### Token-Based Compaction
 

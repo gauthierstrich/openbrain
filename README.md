@@ -30,7 +30,7 @@ The system is designed around **three core properties**:
 - [Installation](#installation)
 - [Quickstart](#quickstart)
 - [Multi-Agent Ecosystem](#multi-agent-ecosystem)
-- [Hybrid Memory System (V2.1)](#hybrid-memory-system-v21)
+- [Hybrid Hybrid Memory System (V2.1)](#hybrid-memory-system-v21)
 - [Configuration Reference](#configuration-reference)
 - [Contributing](#contributing)
 
@@ -91,7 +91,7 @@ The foundational document that defines what the agent *is*. It contains its purp
 ### `user.md` — Interaction Protocol  
 A human-authored document that specifies how the user wants to be addressed, their preferences, their background context, and any specific rules the agent must follow. This separates *who the agent is* from *how it should behave with this specific person*.
 
-### `memory/` — Semantic Knowledge Base (V2.0)
+### `memory/` — Semantic Knowledge Base (V2.1)
 A hierarchical, plain-text store that evolves throughout the lifetime of the agent:
 
 | Path | Purpose |
@@ -166,7 +166,7 @@ Cross-agent awareness is built-in: the Personal Assistant has read access to the
 
 ---
 
-## Memory System (V2.0)
+## Hybrid Memory System (V2.1)
 
 OpenBrain's memory system is designed for **longevity and human readability**.
 
@@ -174,7 +174,7 @@ OpenBrain's memory system is designed for **longevity and human readability**.
 Before the episodic history is summarized (to save tokens), the engine triggers a silent **Flush Turn**. The agent is forced to identify and save critical information from the current conversation into `memory/facts/` or the daily journal. This ensures no high-fidelity detail is lost during compaction.
 
 ### High-Fidelity Context Injection
-Unlike RAG systems that only retrieve fragments, OpenBrain V2.0 injects:
+Unlike RAG systems that only retrieve fragments, OpenBrain V2.1 injects:
 - **Journals**: Content from today and yesterday for seamless inter-session continuity.
 - **Facts**: Full content of relevant markdown fact files (up to context limits).
 
