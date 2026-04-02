@@ -115,21 +115,22 @@ A hierarchical, plain-text store that evolves throughout the lifetime of the age
 | Telegram Bot Token | — | Per-agent bot from @BotFather |
 | OAuth Identity | — | Persistent session in `~/.gemini/` |
 
-### Steps
+### Steps (Zéro-Config)
 
 ```bash
-# 1. Clone the repository
+# 0. Connexion au Gemini CLI (Mandatoire)
+gemini login
+
+# 1. Clone & Installation
 git clone https://github.com/gauthierstrich/openbrain.git
 cd openbrain
-
-# 2. Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Configure your environment
-cp .env.example .env
-# Edit .env with your Telegram tokens and user ID
+# 2. Setup Assistant (Automatique)
+# Pour configurer vos tokens Telegram en mode guidé
+bash scripts/ob-init.sh
 
-# 4. Launch the supervisor
+# 3. Lancement
 python3 scripts/ob-start.py
 ```
 
