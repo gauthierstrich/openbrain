@@ -85,7 +85,7 @@ OpenBrain V2.1 introduces a high-fidelity hybrid search system that achieves par
 To provide "instant recall" without high latency, the memory engine (`memory_index.py`) uses two complementary layers:
 
 1. **SQLite FTS5 (Lexical)**: A high-performance full-text search index built into SQLite. It handles keyword matches (e.g. "What was that command for Docker?") using BM25 ranking.
-2. **Vector Space (Semantic)**: Text is broken into **1,000-character chunks** with a 200-character overlap. Each chunk is embedded into a 256-dimensional vector using Google's `text-embedding-004` model. Similarity is calculated using cosine similarity in pure Python.
+2. **Vector Space (Semantic)**: Text is segmented using an **OpenClaw-parity Double-Pass algorithm**. Chunks are delimited by lines with a budget of **1,000 tokens** (approx. 4,000 chars for Latin, 1,000 chars for CJK). Each chunk is embedded into a 256-dimensional vector using Google's `text-embedding-004` model. Similarity is calculated using cosine similarity in pure Python.
 
 **Scoring Strategy**:
 - `Final Score = (FTS Weight * 0.35) + (Vector Weight * 0.65)`
