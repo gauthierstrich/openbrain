@@ -8,7 +8,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT_DIR / ".env")
 
 # Paramètres du Moteur
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.0-flash-preview")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 GEMINI_PRO_MODEL = os.getenv("GEMINI_PRO_MODEL", "gemini-3.1-pro-preview")
 
 # Configuration du Second Brain
