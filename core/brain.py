@@ -9,6 +9,7 @@ from pathlib import Path
 from core import config
 from core.agent_loader import AgentLoader
 from core.agent_creator import AgentCreator, AgentCreationError
+from core.memory_index import MemoryIndex
 
 class BrainError(Exception):
     pass
@@ -23,13 +24,15 @@ class Brain:
     """
     OpenBrain Core — Le Moteur Cognitif V2.0 (OpenClaw-Inspired Memory)
     Utilise la puissance native du Gemini CLI (YOLO + Tools) pour lire/écrire.
-    Implémente les patterns mémoire d'OpenClaw : Memory Flush, Journal Reload, Facts Loading.
+    Implémente les patterns mémoire d'OpenClaw : Memory Flush, Journal Reload, Hybrid Search.
     """
     def __init__(self):
         self.loader = AgentLoader()
         self.creator = AgentCreator()
+        self.memory_index: MemoryIndex | None = None
         self.refresh_agents()
         self.current_agent = "personal" if "personal" in self.agents else (list(self.agents.keys())[0] if self.agents else None)
+        self._init_memory_index()
 
     def refresh_agents(self):
         self.agents = self.loader.scan()
@@ -37,8 +40,18 @@ class Brain:
     def set_agent(self, agent_key: str) -> bool:
         if agent_key in self.agents:
             self.current_agent = agent_key
+            self._init_memory_index()
             return True
         return False
+
+    def _init_memory_index(self):
+        """Initialise l'index hybride pour l'agent actif."""
+        agent = self.get_active_agent()
+        if agent:
+            try:
+                self.memory_index = MemoryIndex(agent.path)
+            except Exception:
+                self.memory_index = None
 
     def get_active_agent(self):
         return self.agents.get(self.current_agent)
@@ -121,6 +134,24 @@ class Brain:
                 total += len(content)
         return "\n\n".join(parts)
 
+    # ─── OpenClaw P2 : Recherche Hybride dans les faits ───────────────
+    def _search_relevant_facts(self, query: str, top_k: int = 5) -> str:
+        """Recherche les faits les plus pertinents via l'index hybride.
+        Fallback sur le chargement brut si l'index est indisponible."""
+        if self.memory_index:
+            try:
+                results = self.memory_index.search(query, top_k=top_k)
+                if results:
+                    parts = []
+                    for r in results:
+                        score_info = f"(pertinence: {r['score']:.0%})"
+                        parts.append(f"### 📄 {r['filename']} {score_info}\n{r['content']}")
+                    return "\n\n".join(parts)
+            except Exception:
+                pass
+        # Fallback : chargement brut (comme V2.0 sans index)
+        return self._load_facts_content()
+
     # ─── OpenClaw P0 : Memory Flush (sauvegarde avant compaction) ─────
     def _memory_flush(self, history_to_flush: list):
         """Avant compaction : demander à Gemini de sauvegarder les faits importants.
@@ -189,9 +220,9 @@ dans tes fichiers de mémoire AVANT qu'ils ne disparaissent.
         recent = history[-15:]
         history_text = "=== HISTORIQUE RÉCENT ===\n" + "\n".join([f"> {config.USER_NAME}: {e['user']}\n> Toi: {e['agent']}\n" for e in recent]) if recent else ""
 
-        # ✨ NOUVEAU : Chargement du contenu réel des faits (pattern OpenClaw)
-        facts_content = self._load_facts_content()
-        facts_section = f"=== MÉMOIRE FACTUELLE (facts/) ===\n{facts_content}" if facts_content else "=== MÉMOIRE FACTUELLE ===\n(Aucun fait sauvegardé pour l'instant)"
+        # ✨ V2.0 : Recherche hybride dans les faits (pattern OpenClaw)
+        facts_content = self._search_relevant_facts(user_message)
+        facts_section = f"=== MÉMOIRE FACTUELLE (Pertinents pour ta question) ===\n{facts_content}" if facts_content else "=== MÉMOIRE FACTUELLE ===\n(Aucun fait sauvegardé pour l'instant)"
 
         # ✨ NOUVEAU : Chargement des journaux récents J/J-1 (pattern OpenClaw)
         journals_content = self._load_recent_journals()

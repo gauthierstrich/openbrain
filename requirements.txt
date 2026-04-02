@@ -2,4 +2,6 @@
 python-telegram-bot>=20.0
 python-dotenv>=1.0.0
 apscheduler>=3.10.0
+# Embeddings pour la recherche sémantique (optionnel — dégradation gracieuse sans)
+google-genai>=1.0.0
 # gemini-cli must be installed as a system tool (npm or brew)

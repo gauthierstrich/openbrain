@@ -16,3 +16,8 @@ __pycache__/
 Thumbs.db
 logs/
 .obsidian/
+
+# Generated databases (semantic search index)
+*.db
+*.db-wal
+*.db-shm
