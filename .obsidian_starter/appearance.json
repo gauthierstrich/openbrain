@@ -1,0 +1,8 @@
+{
+  "baseFontSize": 15,
+  "theme": "obsidian",
+  "cssTheme": "Minimal",
+  "translucency": true,
+  "nativeMenus": false,
+  "textFontFamily": "Inter, Roboto, sans-serif"
+}
