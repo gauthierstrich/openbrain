@@ -17,6 +17,7 @@ import json
 import math
 import hashlib
 import os
+import re
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -28,8 +29,17 @@ EMBEDDING_DIM = 256  # Dimension réduite pour la rapidité
 FTS_WEIGHT = 0.35
 VECTOR_WEIGHT = 0.65
 DEFAULT_TOP_K = 5
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 200
+
+# OpenClaw standards for chunking
+CHUNK_SIZE_TOKENS = 1000
+CHUNK_OVERLAP_TOKENS = 200
+CHARS_PER_TOKEN_ESTIMATE = 4
+
+# Match pour les caractères CJK (Chinois, Japonais, Coréen) et autres scripts 
+# qui utilisent typiquement 1 token par caractère.
+# Inspiré de OpenClaw cjk-chars.ts
+NON_LATIN_RE = re.compile(r"[\u2E80-\u9FFF\uA000-\uA4FF\uAC00-\uD7AF\uF900-\uFAFF\U00020000-\U0002FA1F]")
+
 EMBED_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{EMBEDDING_MODEL}:embedContent"
 
 # ─── Stratégie OAuth / CLI ───────────────────────────────────────────
@@ -128,6 +138,90 @@ def _embed_via_rest(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> Optiona
         return None
 
 
+def _estimate_string_chars(text: str) -> int:
+    """
+    Calcule une longueur de chaîne pondérée pour l'estimation des tokens.
+    Les caractères CJK comptent pour 4 unités (1 token/char), les autres pour 1.
+    """
+    if not text:
+        return 0
+    non_latin_count = len(NON_LATIN_RE.findall(text))
+    # Chaque caractère non-latin contribue déjà 1 à len(text), 
+    # on ajoute (CHARS_PER_TOKEN_ESTIMATE - 1) pour arriver à 4.
+    return len(text) + non_latin_count * (CHARS_PER_TOKEN_ESTIMATE - 1)
+
+def chunk_text(text: str, chunk_size: int = CHUNK_SIZE_TOKENS, overlap: int = CHUNK_OVERLAP_TOKENS) -> list[str]:
+    """
+    Découpe le texte en morceaux (chunks) en utilisant la logique de parité OpenClaw (Double Pass) :
+    1. Découpage en lignes.
+    2. Pour chaque ligne, création de segments :
+       - Coarse slice (découpe grossière) à tokens * 4.
+       - Fine slice (découpe fine) à tokens si le segment est CJK-heavy.
+    3. Fusion des segments en chunks jusqu'au budget de tokens.
+    4. Overlap géré par rollback de segments.
+    """
+    lines = text.split("\n")
+    if not lines:
+        return []
+
+    max_chars = max(32, chunk_size * CHARS_PER_TOKEN_ESTIMATE)
+    overlap_chars = max(0, overlap * CHARS_PER_TOKEN_ESTIMATE)
+    
+    chunks = []
+    current_segments = []
+    current_weighted_chars = 0
+
+    def flush_chunk():
+        if not current_segments:
+            return
+        chunks.append("\n".join(current_segments))
+
+    def carry_overlap():
+        nonlocal current_segments, current_weighted_chars
+        if overlap_chars <= 0 or not current_segments:
+            current_segments = []
+            current_weighted_chars = 0
+            return
+        
+        acc = 0
+        kept = []
+        for seg in reversed(current_segments):
+            seg_weight = _estimate_string_chars(seg) + 1
+            acc += seg_weight
+            kept.insert(0, seg)
+            if acc >= overlap_chars:
+                break
+        current_segments = kept
+        current_weighted_chars = sum(_estimate_string_chars(s) + 1 for s in kept)
+
+    for line in lines:
+        segments = []
+        if not line:
+            segments.append("")
+        else:
+            # First pass: coarse slice
+            for s in range(0, len(line), max_chars):
+                coarse = line[s:s+max_chars]
+                # Second pass: fine slice for CJK
+                if _estimate_string_chars(coarse) > max_chars:
+                    fine_step = max(1, chunk_size)
+                    for j in range(0, len(coarse), fine_step):
+                        segments.append(coarse[j:j+fine_step])
+                else:
+                    segments.append(coarse)
+        
+        for segment in segments:
+            seg_weight = _estimate_string_chars(segment) + 1
+            if current_weighted_chars + seg_weight > max_chars and current_segments:
+                flush_chunk()
+                carry_overlap()
+            
+            current_segments.append(segment)
+            current_weighted_chars += seg_weight
+
+    flush_chunk()
+    return chunks
+
 def _init_genai_client():
     """Obsolète : on préfère l'authentification REST avec OAuth CLI."""
     return None
@@ -143,20 +237,6 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (norm_a * norm_b)
 
 
-def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
-    """Découpe un texte en morceaux pour l'indexation (pattern OpenClaw)."""
-    if not text:
-        return []
-    chunks = []
-    start = 0
-    text_len = len(text)
-    while start < text_len:
-        end = start + chunk_size
-        chunks.append(text[start:end])
-        if end >= text_len:
-            break
-        start += chunk_size - overlap
-    return chunks
 
 
 class MemoryIndex:
