@@ -30,6 +30,14 @@ def run_doctor():
         print_check("Gemini CLI", False, "Non trouvé dans le PATH")
         all_ok = False
 
+    # Check OAuth (V2.1 Requirement)
+    oauth_path = Path.home() / ".gemini" / "oauth_creds.json"
+    auth_ok = oauth_path.exists()
+    print_check("Authentification (OAuth)", auth_ok, "OK" if auth_ok else "Manquante")
+    if not auth_ok: 
+        all_ok = False
+        print(f"   {C.YELLOW}👉 Action requise : Tapez 'gemini login' dans votre terminal.{C.RESET}")
+
     try:
         res = subprocess.run(["git", "--version"], capture_output=True, text=True)
         git_ok = res.returncode == 0
@@ -43,7 +51,8 @@ def run_doctor():
         return 0
     else:
         print(f"{C.RED}Des erreurs ont été détectées. Veuillez installer les pré-requis.{C.RESET}")
-        print("Installation Gemini CLI: npm install -g @google/gemini-cli")
+        if not gem_ok:
+            print("Installation Gemini CLI: npm install -g @google/gemini-cli")
         return 1
 
 if __name__ == "__main__":

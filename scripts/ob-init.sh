@@ -43,7 +43,7 @@ cp -R "$DIR/template/agents/architect" "$STORAGE_PATH/agents/"
 
 # 5. Env setup
 cat > "$DIR/.env" << ENVFILE
-GEMINI_MODEL=gemini-1.5-pro
+GEMINI_MODEL=gemini-3.0-flash-preview
 USER_LANGUAGE=fr
 BRAIN_STORAGE_PATH="$STORAGE_PATH"
 ALLOWED_USER_ID=$ALLOWED_USER_ID
