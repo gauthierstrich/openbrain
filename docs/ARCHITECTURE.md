@@ -1,34 +1,206 @@
-# 🏗️ OpenBrain Architecture: The High-Fidelity Infrastructure
+# Architecture Reference (V2.0 Core)
 
-## 1. Modular State Separation
-OpenBrain follows a **memory-centric** architectural pattern, segregating identity from procedural logic.
-
-- **The Static Soul**: A persistent, immutable-during-session Markdown file (`soul.md`) that represents the personality, mission, and constraints of the agent instance.
-- **The Protocol Layer**: The `user.md` file defines the interaction standards, tone, and specific preferences of the human partner.
-- **The Dynamic Memory (V2.0)**: A high-fidelity cognitive storage system. It uses a tiered approach:
-    - **Long-term Facts** (`memory/facts/*.md`): Durable knowledge with active content injection.
-    - **Daily Logs** (`memory/journal/YYYY-MM-DD.md`): Temporal context with automatic multi-day reload (J and J-1).
-    - **Episodic History** (`memory/history/`): Compressed conversational context with token-derived compaction.
-
-## 2. Intelligence Orchestration: High-Fidelity Execution
-OpenBrain Core utilizes a **synchronous-over-asynchronous** approach for LLM orchestration.
-
-- **The Engine (`brain.py`)**: Interacts with the **Gemini CLI** via `subprocess.run()`. This ensures that the agent inherits the machine's environment and natively supports tool usage through the `--yolo` mode of the CLI.
-- **Context Management (V2.0)**: The engine maintains a robust token-aware window.
-    - **Token-based Compaction**: Compaction is triggered when the character-to-token budget (approx. 8000 tokens) is exceeded, ensuring stability for both long and short interactions.
-    - **Context Injection**: At every turn, the engine automatically injects the content of recent journals and relevant fact files into the prompt, ensuring the agent has full situational awareness without manual search.
-
-## 3. The Proactive "Memory Flush" Cycle
-Unlike traditional passive systems, OpenBrain Core is **active and self-preserving**.
-
-- **Perception**: The agent uses native tools to explore local directories.
-- **Memory Flush**: Before the episodic history is summarized (compaction), the engine triggers a silent "Flush Turn". This forces the agent to identify and save critical information from the current conversation to the Markdown files in `facts/` or `journal/`.
-- **Ingestion**: This ensures that even after a summary, the "finesse" of the information is preserved in durable storage.
-
-## 4. Multi-Interface Synchronization
-The core is interface-agnostic. It currently supports:
-- **Telegram Protocol**: A high-performance, mobile-ready interface with interactive reflection jobs.
-- **Unified Supervisor**: The `ob-start.py` script manages the parallel lifecycle of multiple agents, ensuring stable execution and automatic restarting on failure.
+This document describes the technical architecture of OpenBrain V2.0 — a high-fidelity cognitive operating system. It is intended for contributors, developers building on top of the framework, and users who want to understand how the system works internally.
 
 ---
-*OpenBrain Core Architecture — Precision Engineering for Intelligence.*
+
+## Table of Contents
+
+- [System Overview](#system-overview)
+- [Component Reference](#component-reference)
+  - [The Brain Engine](#the-brain-engine-brainpy)
+  - [The Telegram Interface](#the-telegram-interface)
+  - [The Agent Loader](#the-agent-loader)
+  - [The Agent Creator](#the-agent-creator)
+  - [The Supervisor](#the-supervisor)
+- [Memory Architecture (V2.0 Orchestration)](#memory-architecture-v20-orchestration)
+  - [Filesystem Layout](#filesystem-layout)
+  - [Memory Flush: Self-Preservation Cycle](#memory-flush-self-preservation-cycle)
+  - [High-Fidelity Context Construction](#high-fidelity-context-construction)
+  - [Token-Based Compaction](#token-based-compaction)
+- [The Intelligence Layer](#the-intelligence-layer)
+  - [Native Subprocess Execution](#native-subprocess-execution)
+  - [YOLO Mode](#yolo-mode)
+  - [Proactive Learning Cycle](#proactive-learning-cycle)
+- [Data Flow Diagrams](#data-flow-diagrams)
+- [Security Considerations](#security-considerations)
+- [Extension Points](#extension-points)
+
+---
+
+## System Overview
+
+OpenBrain is structured as a **multi-process supervisor** managing one or more **agent processes**. Each agent process handles a single Telegram bot interface backed by a shared `Brain` engine instance. The `Brain` engine orchestrates context construction, LLM invocation, and memory persistence.
+
+The system has no external service dependencies beyond the user's local Gemini CLI installation. There is no database, no vector store, and no background sync process.
+
+---
+
+## Component Reference
+
+### The Brain Engine (`brain.py`)
+
+The central orchestration component. Responsible for:
+
+1. **Context construction**: Assembles the full prompt from the agent's soul, user profile, current facts, episodic summary, and recent conversation history.
+2. **Memory V2.0 Orchestration**: Reloads recent journals (today/yesterday) and fact file contents into every turn.
+3. **LLM invocation**: Calls the Gemini CLI via `subprocess.run()` with the assembled context as stdin.
+4. **Memory persistence**: Writes conversation turns to the rolling history file and the daily journal.
+5. **Flush & Summarization trigger**: When conversation complexity exceeds the token threshold, initiates a silent **Memory Flush** followed by a summarization pass.
+
+**Key design decision**: The brain passes context via `stdin` rather than shell arguments. This prevents prompt injection attacks and avoids shell escaping issues with user-provided content.
+
+### The Telegram Interface (`core/interfaces/telegram.py`)
+
+An `asyncio`-based Telegram bot using `python-telegram-bot`. Each agent runs its own interface instance as a separate OS process.
+
+The interface handles:
+- **Access control**: All incoming messages are filtered against the configured `ALLOWED_USER_ID`.
+- **Typing simulation**: A background coroutine sends periodic `typing` actions to Telegram during inference, which can take 10–60 seconds depending on context size.
+- **Non-blocking dispatch**: LLM calls are dispatched via `loop.run_in_executor()` to avoid blocking the asyncio event loop.
+
+### The Agent Loader (`core/agent_loader.py`)
+
+Scans the `agents/` directory on startup and returns a dictionary of available agents. Each agent is represented by a dataclass containing its `id`, `name`, `emoji`, and filesystem `path`.
+
+### The Agent Creator (`core/agent_creator.py`)
+
+Provisions a new agent directory from a template when the Architect issues a `CREATE_AGENT` instruction. Creates the full directory structure and populates `soul.md`, `user.md`, and `index.md` with the provided content and YOLO mode directives.
+
+### The Supervisor (`scripts/ob-start.py`)
+
+A simple process manager that launches one OS process per configured agent and monitors them for failures. On detection of a `restart.signal` file, the supervisor performs a graceful restart of the affected agent — enabling zero-downtime reconfiguration.
+
+---
+
+## Memory Architecture (V2.0 Orchestration)
+
+### Filesystem Layout
+
+```
+agents/
+└── <agent-name>/
+    ├── soul.md                          # Agent identity and mission
+    ├── user.md                          # User interaction protocol
+    ├── index.md                         # Knowledge base table of contents
+    └── memory/
+        ├── facts/
+        │   ├── <topic>.md               # One file per knowledge domain (Loaded into context)
+        │   └── progress.md              # Cross-agent readable progress file
+        ├── journal/
+        │   └── YYYY-MM-DD.md            # Daily logs (Reloaded for inter-session continuity)
+        └── history/
+            ├── conversation_history.json  # Rolling window (analyzed for tokens)
+            └── history_summary.txt        # LLM-generated episodic summary
+```
+
+All files are plain UTF-8 Markdown. No binary formats, no serialization dependencies.
+
+### Memory Flush: Self-Preservation Cycle
+
+In OpenBrain V2.0, the system prevents information loss through a proactive **Flush Cycle**. Before any conversational history is summarized (to save tokens), the engine triggers a silent **Flush Turn**:
+
+1. The history chunk to be summarized is prepared.
+2. A silent prompt instructs the agent to identify all **Durable Facts** or **Temporary Journal Notes**.
+3. The agent uses its native file-writing tools to save this knowledge into `memory/facts/` or `memory/journal/`.
+4. Only after this "Flush" is complete does the engine perform the summarization of the history chunk.
+
+This mirrors the human habit of "taking final notes" before archiving a project.
+
+### High-Fidelity Context Construction
+
+On each inference call, the brain constructs a single text prompt by concatenating the following sections:
+
+| Section | Source | Max Size |
+|---------|--------|----------|
+| Agent soul | `soul.md` | Unbounded |
+| Global user profile | `identity/user.md` | Unbounded |
+| Agent user preferences | `user.md` | Unbounded |
+| Knowledge base content | **All `memory/facts/*.md`** | **~6000 chars total** (V2.0 injection) |
+| Recent Journals | **Today & Yesterday Journals** | Unbounded (V2.0 reload) |
+| Episodic summary | `history/history_summary.txt` | Unbounded |
+| Recent history | Last 15 turns from JSON | Unbounded |
+| Current message | User input | Unbounded |
+
+V2.0 ensures the agent "knows" what happened yesterday and has all its facts directly in mind, without having to manually search for them.
+
+### Token-Based Compaction
+
+History is no longer compressed based on a fixed message count (legacy limit: 20 turns). Compaction is now triggered by a **Token Budget**:
+- **Threshold**: ~8,000 tokens (estimated at 28,000 characters for French).
+- **Persistence**: Preservation of the last 15 messages (fixed) ensures the immediate flow isn't broken.
+
+---
+
+## The Intelligence Layer
+
+### Native Subprocess Execution
+
+OpenBrain invokes the Gemini CLI as a subprocess. This provides:
+- **Native tool access**: Direct file/directory manipulation via Gemini's built-in tools.
+- **Environment inheritance**: Credential persistence and shell tool access.
+
+### YOLO Mode
+
+Invoked with `--yolo`, allowing agents to perform background memory writes (SAVE_FACT) without human approval.
+
+### Proactive Learning Cycle
+
+In V2.0, this cycle is dual-tracked:
+1. **Interactive Learning**: Real-time memory updates during conversation via `SAVE_FACT`.
+2. **Archival Learning (Flush)**: Systematic knowledge extraction before historical compaction.
+
+---
+
+## Data Flow Diagrams
+
+### Message Processing (V2.0)
+
+```
+User message (Telegram)
+        │
+        ▼
+[Access control check]
+        │
+        ▼
+[Volume/Token check] ─► [Trigger FLUSH + SUMMARIZE if >8000 tokens]
+        │                   │
+        │                   └─► 1. Ask Gemini to SAVE_FACTS silently
+        │                   └─► 2. Summarize oldest turns
+        ▼
+[Build context prompt]
+  soul + user + FULL_FACTS + RECENT_JOURNALS + summary + history + message
+        │
+        ▼
+[gemini -y -m <model>] ◄── stdin: context prompt
+        │
+        ▼
+[Parse response]
+        │
+        ▼
+[Append history JSON] + [Write journal log]
+        │
+        ▼
+[Send response to user]
+```
+
+---
+
+## Security Considerations
+
+| Surface | Risk | Mitigation |
+|---------|------|------------|
+| Telegram access | Unauthorized users | Hard `ALLOWED_USER_ID` check on every message |
+| YOLO mode file access | Agent writes outside memory/ | Instructional confinement; OS-level user permissions |
+| `.env` token exposure | Token leak if committed to Git | `.env` is in `.gitignore` |
+
+---
+
+## Extension Points
+
+- **New interfaces**: CLI, Discord, etc. by reusing the `Brain` engine.
+- **Alternative LLM backends**: The context construction is backend-agnostic (designed for high-fidelity text prompts).
+- **Custom sensors**: The `core/sensors/` directory can host background jobs that feed data into the agent's journals.
+
+---
+*OpenBrain Core V2.0 — Engineering for Autonomy and Intelligence.*
