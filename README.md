@@ -19,7 +19,7 @@ The system is designed around **three core properties**:
 
 - **Local-First**: All data — facts, conversations, identity — is stored as plain Markdown files on your filesystem. No third-party databases. No telemetry.
 - **Modular by Design**: Each agent is a self-contained unit with its own identity (`soul.md`), user interaction protocol (`user.md`), and semantic memory (`memory/`).
-- **Natively Intelligent (V2.0)**: Agents run on top of Gemini CLI with full system access. They can read files, explore directories, and write knowledge to disk — with high-fidelity memory orchestration (Memory Flush, Journal Reload).
+- **Natively Intelligent (V2.1)**: Agents run on top of Gemini CLI with full system access. They feature **Hybrid Semantic Memory** (BM25 + Cosine Similarity) and full **OAuth integration** via Gemini CLI — achieving paritly with OpenClaw architecture.
 
 ---
 
@@ -30,7 +30,7 @@ The system is designed around **three core properties**:
 - [Installation](#installation)
 - [Quickstart](#quickstart)
 - [Multi-Agent Ecosystem](#multi-agent-ecosystem)
-- [Memory System (V2.0)](#memory-system-v20)
+- [Hybrid Memory System (V2.1)](#hybrid-memory-system-v21)
 - [Configuration Reference](#configuration-reference)
 - [Contributing](#contributing)
 
@@ -54,11 +54,11 @@ OpenBrain follows a **memory-centric, event-driven** architecture. The system is
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Brain Engine (V2.0)                      │
-│  - Builds full context: soul + user + facts + journals      │
-│  - Invokes gemini-cli subprocess with --yolo flag           │
+│                    Brain Engine (V2.1)                      │
+│  - Builds context: soul + user + Hybrid Search results      │
+│  - Invokes gemini-cli subprocess with OAuth identity        │
 │  - High-Fidelity Flush Cycle: save facts before compaction  │
-│  - Dispatches system actions to disk                        │
+│  - Native support for Gemini 3.0 Flash & 3.1 Pro            │
 └─────────────────────────────────────────────────────────────┘
                          │
               ┌──────────┴──────────┐
@@ -110,10 +110,10 @@ A hierarchical, plain-text store that evolves throughout the lifetime of the age
 
 | Requirement | Version | Notes |
 |-------------|---------|-------|
-| Python | 3.10+ | Standard library only for core engine |
-| [gemini-cli](https://github.com/google-gemini/gemini-cli) | Latest | Must be authenticated (`gemini login`) |
-| Telegram Bot Token | — | One token per agent, obtained via [@BotFather](https://t.me/BotFather) |
-| Telegram User ID | — | Your personal Telegram ID (e.g., from [@userinfobot](https://t.me/userinfobot)) |
+| Python | 3.10+ | Standard library + SQLite FTS5 |
+| [gemini-cli](https://github.com/google-gemini/gemini-cli) | 0.35+ | Logged in via `gemini login` |
+| Telegram Bot Token | — | Per-agent bot from @BotFather |
+| OAuth Identity | — | Persistent session in `~/.gemini/` |
 
 ### Steps
 

@@ -28,9 +28,42 @@ EMBEDDING_DIM = 256  # Dimension réduite pour la rapidité
 FTS_WEIGHT = 0.35
 VECTOR_WEIGHT = 0.65
 DEFAULT_TOP_K = 5
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 200
 EMBED_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{EMBEDDING_MODEL}:embedContent"
 
-# ─── Tentative d'import du SDK Gemini (optionnel) ───────────────────
+# ─── Stratégie OAuth / CLI ───────────────────────────────────────────
+
+def _get_oauth_token() -> Optional[str]:
+    """Tente de récupérer le token OAuth depuis le fichier Gemini CLI."""
+    token_path = Path.home() / ".gemini" / "oauth_creds.json"
+    if token_path.exists():
+        try:
+            creds = json.loads(token_path.read_text(encoding="utf-8"))
+            return creds.get("access_token")
+        except Exception:
+            pass
+    return None
+
+def _get_active_project() -> Optional[str]:
+    """Tente d'associer le dossier actuel à un nom de projet Gemini CLI."""
+    projects_path = Path.home() / ".gemini" / "projects.json"
+    if not projects_path.exists():
+        return None
+    try:
+        data = json.loads(projects_path.read_text(encoding="utf-8"))
+        projects = data.get("projects", {})
+        current_dir = str(Path.cwd().resolve())
+        
+        # On trie par longueur de chemin décroissante pour trouver le match le plus précis
+        sorted_paths = sorted(projects.keys(), key=len, reverse=True)
+        for path_str in sorted_paths:
+            if current_dir.startswith(str(Path(path_str).resolve())):
+                return projects[path_str]
+    except Exception:
+        pass
+    return None
+
 _genai_available = False
 _genai_client = None
 try:
@@ -52,12 +85,15 @@ def _get_ssl_context():
 
 
 def _embed_via_rest(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> Optional[list[float]]:
-    """Appelle l'API Gemini Embeddings via REST avec une API Key.
-    Utilisé quand le SDK google-genai n'est pas installé."""
+    """Appelle l'API Gemini Embeddings via REST (Pattern OpenClaw Auth)."""
     api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-    if not api_key:
+    oauth_token = _get_oauth_token()
+    project_id = _get_active_project()
+    
+    if not api_key and not oauth_token:
         return None
 
+    # On utilise le format JSON pour l'Auth si on a un token
     payload = json.dumps({
         "model": f"models/{EMBEDDING_MODEL}",
         "content": {"parts": [{"text": text[:2000]}]},
@@ -65,11 +101,18 @@ def _embed_via_rest(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> Optiona
         "taskType": task_type,
     }).encode("utf-8")
 
-    url = f"{EMBED_API_URL}?key={api_key}"
+    # Si on a une clé API, on l'utilise en priorité
+    url = f"{EMBED_API_URL}?key={api_key}" if api_key else EMBED_API_URL
+    headers = {"Content-Type": "application/json"}
+    
+    # Sinon, on utilise le token OAuth comme Bearer (Pattern OpenClaw infra/gemini-auth.ts)
+    if not api_key and oauth_token:
+        headers["Authorization"] = f"Bearer {oauth_token}"
+
     req = urllib.request.Request(
         url,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method="POST",
     )
 
@@ -77,29 +120,17 @@ def _embed_via_rest(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> Optiona
         ctx = _get_ssl_context()
         with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
             data = json.loads(resp.read())
-            return data["embedding"]["values"]
+            # Gestion du format de réponse embedding
+            if "embedding" in data:
+                return data["embedding"]["values"]
+            return None
     except Exception:
         return None
 
 
 def _init_genai_client():
-    """Initialise le client GenAI avec une API Key. Retourne None si pas de clé."""
-    global _genai_client
-    if _genai_client is not None:
-        return _genai_client
-
-    if not _genai_available:
-        return None
-
-    api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return None
-
-    try:
-        _genai_client = genai.Client(api_key=api_key)
-        return _genai_client
-    except Exception:
-        return None
+    """Obsolète : on préfère l'authentification REST avec OAuth CLI."""
+    return None
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -110,6 +141,22 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     if norm_a == 0 or norm_b == 0:
         return 0.0
     return dot / (norm_a * norm_b)
+
+
+def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
+    """Découpe un texte en morceaux pour l'indexation (pattern OpenClaw)."""
+    if not text:
+        return []
+    chunks = []
+    start = 0
+    text_len = len(text)
+    while start < text_len:
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        if end >= text_len:
+            break
+        start += chunk_size - overlap
+    return chunks
 
 
 class MemoryIndex:
@@ -140,15 +187,30 @@ class MemoryIndex:
     def _ensure_schema(self):
         """Crée les tables nécessaires si elles n'existent pas."""
         conn = self._get_conn()
+        
+        # Vérification si chunk_index existe, sinon on redémarre l'index (Migration V2.1)
+        try:
+            conn.execute("SELECT chunk_index FROM documents LIMIT 1")
+        except sqlite3.OperationalError:
+            conn.executescript("""
+                DROP TABLE IF EXISTS documents;
+                DROP TABLE IF EXISTS documents_fts;
+                DROP TRIGGER IF EXISTS documents_ai;
+                DROP TRIGGER IF EXISTS documents_ad;
+                DROP TRIGGER IF EXISTS documents_au;
+            """)
+
         conn.executescript("""
-            -- Table principale des documents indexés
+            -- Table principale des documents indexés (avec chunking)
             CREATE TABLE IF NOT EXISTS documents (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                filename TEXT UNIQUE NOT NULL,
+                filename TEXT NOT NULL,
+                chunk_index INTEGER NOT NULL,
                 content TEXT NOT NULL,
                 content_hash TEXT NOT NULL,
                 embedding BLOB,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(filename, chunk_index)
             );
 
             -- Index FTS5 pour la recherche full-text
@@ -175,12 +237,12 @@ class MemoryIndex:
 
     # ─── Indexation ──────────────────────────────────────────────────
 
-    def index_facts(self) -> dict:
+    def _index_directory(self, directory: Path, rel_prefix: str) -> dict:
         """
-        Scanne memory/facts/ et (ré)indexe les fichiers modifiés.
-        Retourne un rapport {indexed: int, skipped: int, removed: int}.
+        Scanne un dossier et (ré)indexe les fichiers modifiés par morceaux (chunks).
+        SHA-256 est utilisé pour la comparaison.
         """
-        if not self.facts_dir.exists():
+        if not directory.exists():
             return {"indexed": 0, "skipped": 0, "removed": 0}
 
         conn = self._get_conn()
@@ -188,71 +250,83 @@ class MemoryIndex:
 
         # Fichiers actuellement sur disque
         disk_files = {}
-        for f in self.facts_dir.iterdir():
+        for f in directory.iterdir():
             if f.is_file() and f.suffix == ".md":
+                filename = f"{rel_prefix}/{f.name}"
                 content = f.read_text(encoding="utf-8").strip()
-                content_hash = hashlib.md5(content.encode()).hexdigest()
-                disk_files[f.name] = (content, content_hash)
+                if not content:
+                    continue
+                content_hash = hashlib.sha256(content.encode()).hexdigest()
+                disk_files[filename] = (content, content_hash)
 
-        # Fichiers actuellement dans l'index
-        indexed = {
+        # Fichiers dans l'index (on vérifie le hash sur le chunk_index=0)
+        indexed_hashes = {
             row[0]: row[1]
-            for row in conn.execute("SELECT filename, content_hash FROM documents")
+            for row in conn.execute("SELECT filename, content_hash FROM documents WHERE chunk_index=0 AND filename LIKE ?", (f"{rel_prefix}/%",))
+        }
+
+        # Pour les suppressions
+        all_indexed_files = {
+            row[0]
+            for row in conn.execute("SELECT DISTINCT filename FROM documents WHERE filename LIKE ?", (f"{rel_prefix}/%",))
         }
 
         # Supprimer les fichiers disparus du disque
-        for filename in indexed:
+        for filename in all_indexed_files:
             if filename not in disk_files:
                 conn.execute("DELETE FROM documents WHERE filename = ?", (filename,))
                 report["removed"] += 1
 
         # Indexer les fichiers nouveaux ou modifiés
         for filename, (content, content_hash) in disk_files.items():
-            if filename in indexed and indexed[filename] == content_hash:
+            if filename in indexed_hashes and indexed_hashes[filename] == content_hash:
                 report["skipped"] += 1
                 continue
 
-            # Générer l'embedding (optionnel)
-            embedding_blob = None
-            embedding = self._embed_text(content)
-            if embedding:
-                embedding_blob = json.dumps(embedding).encode("utf-8")
+            # Nouveaux ou modifiés : purger anciens chunks d'abord
+            conn.execute("DELETE FROM documents WHERE filename = ?", (filename,))
 
-            if filename in indexed:
-                # Mise à jour
+            chunks = chunk_text(content)
+            for i, chunk in enumerate(chunks):
+                embedding_blob = None
+                embedding = self._embed_text(chunk)
+                if embedding:
+                    embedding_blob = json.dumps(embedding).encode("utf-8")
+
                 conn.execute(
-                    "UPDATE documents SET content=?, content_hash=?, embedding=?, updated_at=CURRENT_TIMESTAMP WHERE filename=?",
-                    (content, content_hash, embedding_blob, filename),
-                )
-            else:
-                # Insertion
-                conn.execute(
-                    "INSERT INTO documents (filename, content, content_hash, embedding) VALUES (?, ?, ?, ?)",
-                    (filename, content, content_hash, embedding_blob),
+                    "INSERT INTO documents (filename, chunk_index, content, content_hash, embedding) VALUES (?, ?, ?, ?, ?)",
+                    (filename, i, chunk, content_hash, embedding_blob),
                 )
             report["indexed"] += 1
 
         conn.commit()
         return report
 
+    def index_facts(self) -> dict:
+        return self._index_directory(self.facts_dir, "facts")
+
+    def index_journals(self) -> dict:
+        return self._index_directory(self.agent_path / "memory" / "journal", "journal")
+
     # ─── Recherche hybride ───────────────────────────────────────────
 
     def search(self, query: str, top_k: int = DEFAULT_TOP_K) -> list[dict]:
         """
         Recherche hybride : FTS5 (BM25) + Embeddings (Cosine Similarity).
-        Retourne les top_k résultats les plus pertinents.
+        Retourne les top_k morceaux (chunks) les plus pertinents.
 
         Returns:
-            Liste de dicts : [{filename, content, score}, ...]
+            Liste de dicts : [{filename, chunk_index, content, score}, ...]
         """
         conn = self._get_conn()
 
-        # S'assurer que l'index est à jour
+        # S'assurer que l'index est à jour pour facts et journals
         self.index_facts()
+        self.index_journals()
 
-        # Tous les documents
+        # Tous les documents (chunks)
         all_docs = list(conn.execute(
-            "SELECT id, filename, content, embedding FROM documents"
+            "SELECT id, filename, chunk_index, content, embedding FROM documents"
         ))
         if not all_docs:
             return []
@@ -283,7 +357,7 @@ class MemoryIndex:
         query_embedding = self._embed_text(query, is_query=True)
 
         # ─── Fusion des scores ───────────────────────────────────────
-        for doc_id, filename, content, embedding_blob in all_docs:
+        for doc_id, filename, chunk_index, content, embedding_blob in all_docs:
             fts_score = fts_results.get(doc_id, 0.0)
             vec_score = 0.0
 
@@ -302,8 +376,10 @@ class MemoryIndex:
                 final_score = fts_score
 
             if final_score > 0.01:  # Seuil minimum
-                scores[filename] = {
+                doc_key = f"{filename}#c{chunk_index}"
+                scores[doc_key] = {
                     "filename": filename,
+                    "chunk_index": chunk_index,
                     "content": content,
                     "score": final_score,
                     "fts_score": fts_score,
@@ -314,36 +390,17 @@ class MemoryIndex:
         ranked = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
         return ranked[:top_k]
 
-    # ─── Embeddings Gemini (Cascade : SDK → REST/OAuth → None) ────────
+    # ─── Embeddings Gemini (REST + OAuth CLI) ───────────────────────
 
     def _embed_text(self, text: str, is_query: bool = False) -> Optional[list[float]]:
         """
         Génère un embedding vectoriel via l'API Gemini.
-        Stratégie en cascade :
-          1. SDK google-genai (si GOOGLE_API_KEY est défini)
-          2. REST API directe avec le token OAuth du Gemini CLI
-          3. None (dégradation gracieuse → FTS5 uniquement)
+        Priorité à l'authentification OAuth du Gemini CLI pour une parité OpenClaw.
         """
         task_type = "RETRIEVAL_QUERY" if is_query else "RETRIEVAL_DOCUMENT"
         truncated = text[:2000]
 
-        # Stratégie 1 : SDK avec API Key
-        client = _init_genai_client()
-        if client is not None:
-            try:
-                response = client.models.embed_content(
-                    model=EMBEDDING_MODEL,
-                    contents=truncated,
-                    config=genai_types.EmbedContentConfig(
-                        task_type=task_type,
-                        output_dimensionality=EMBEDDING_DIM,
-                    ),
-                )
-                return response.embeddings[0].values
-            except Exception:
-                pass
-
-        # Stratégie 2 : REST API avec OAuth token du Gemini CLI
+        # On utilise directement REST car il supporte nativement le Token Bearer du CLI
         return _embed_via_rest(truncated, task_type)
 
     # ─── Méthode fallback (chargement brut) ──────────────────────────

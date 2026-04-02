@@ -13,13 +13,15 @@ This document describes the technical architecture of OpenBrain V2.0 — a high-
   - [The Agent Loader](#the-agent-loader)
   - [The Agent Creator](#the-agent-creator)
   - [The Supervisor](#the-supervisor)
-- [Memory Architecture (V2.0 Orchestration)](#memory-architecture-v20-orchestration)
+- [Memory Architecture (V2.1 Hybrid Search)](#memory-architecture-v21-hybrid-search)
+  - [SQLite FTS5 & Vector Layers](#sqlite-fts5--vector-layers)
+  - [Authentication: The OAuth Bridge](#authentication-the-oauth-bridge)
   - [Filesystem Layout](#filesystem-layout)
   - [Memory Flush: Self-Preservation Cycle](#memory-flush-self-preservation-cycle)
   - [High-Fidelity Context Construction](#high-fidelity-context-construction)
   - [Token-Based Compaction](#token-based-compaction)
 - [The Intelligence Layer](#the-intelligence-layer)
-  - [Native Subprocess Execution](#native-subprocess-execution)
+  - [Native Subprocess Execution (Gemini CLI)](#native-subprocess-execution-gemini-cli)
   - [YOLO Mode](#yolo-mode)
   - [Proactive Learning Cycle](#proactive-learning-cycle)
 - [Data Flow Diagrams](#data-flow-diagrams)
@@ -32,7 +34,7 @@ This document describes the technical architecture of OpenBrain V2.0 — a high-
 
 OpenBrain is structured as a **multi-process supervisor** managing one or more **agent processes**. Each agent process handles a single Telegram bot interface backed by a shared `Brain` engine instance. The `Brain` engine orchestrates context construction, LLM invocation, and memory persistence.
 
-The system has no external service dependencies beyond the user's local Gemini CLI installation. There is no database, no vector store, and no background sync process.
+The system has no external service dependencies beyond the user's local Gemini CLI installation. Authentication is handled natively through the user's existing OAuth session, eliminating the need for manual API keys.
 
 ---
 
@@ -46,7 +48,8 @@ The central orchestration component. Responsible for:
 2. **Memory V2.0 Orchestration**: Reloads recent journals (today/yesterday) and fact file contents into every turn.
 3. **LLM invocation**: Calls the Gemini CLI via `subprocess.run()` with the assembled context as stdin.
 4. **Memory persistence**: Writes conversation turns to the rolling history file and the daily journal.
-5. **Flush & Summarization trigger**: When conversation complexity exceeds the token threshold, initiates a silent **Memory Flush** followed by a summarization pass.
+5. **Hybrid Search Trigger**: Before every turn, initiates a search in the agent's memory using a weighted score between FTS5 (text) and Gemini Embeddings (semantic).
+6. **Flush & Summarization trigger**: When conversation complexity exceeds the token threshold, initiates a silent **Memory Flush** followed by a summarization pass.
 
 **Key design decision**: The brain passes context via `stdin` rather than shell arguments. This prevents prompt injection attacks and avoids shell escaping issues with user-provided content.
 
@@ -73,7 +76,27 @@ A simple process manager that launches one OS process per configured agent and m
 
 ---
 
-## Memory Architecture (V2.0 Orchestration)
+## Memory Architecture (V2.1 Hybrid Search)
+
+OpenBrain V2.1 introduces a high-fidelity hybrid search system that achieves parity with advanced cognitive frameworks like OpenClaw.
+
+### SQLite FTS5 & Vector Layers
+
+To provide "instant recall" without high latency, the memory engine (`memory_index.py`) uses two complementary layers:
+
+1. **SQLite FTS5 (Lexical)**: A high-performance full-text search index built into SQLite. It handles keyword matches (e.g. "What was that command for Docker?") using BM25 ranking.
+2. **Vector Space (Semantic)**: Text is broken into **1,000-character chunks** with a 200-character overlap. Each chunk is embedded into a 256-dimensional vector using Google's `text-embedding-004` model. Similarity is calculated using cosine similarity in pure Python.
+
+**Scoring Strategy**:
+- `Final Score = (FTS Weight * 0.35) + (Vector Weight * 0.65)`
+
+### Authentication: The OAuth Bridge
+
+OpenBrain prioritizes **Zero-Config Security**. Instead of requiring a static `GOOGLE_API_KEY` (which can be leaked or rotated), the system bridges directly into your terminal session:
+
+- **Token Discovery**: The engine automatically reads your Gemini CLI session from `~/.gemini/oauth_creds.json`.
+- **Project Mapping**: It identifies your active project from `~/.gemini/projects.json` to ensure correct quota allocation under your personal identity.
+- **REST Protocol**: REST API calls for embeddings are authenticated via standard `Authorization: Bearer` headers.
 
 ### Filesystem Layout
 
@@ -85,10 +108,10 @@ agents/
     ├── index.md                         # Knowledge base table of contents
     └── memory/
         ├── facts/
-        │   ├── <topic>.md               # One file per knowledge domain (Loaded into context)
+        │   ├── <topic>.md               # One file per knowledge domain (Indexed by chunks)
         │   └── progress.md              # Cross-agent readable progress file
         ├── journal/
-        │   └── YYYY-MM-DD.md            # Daily logs (Reloaded for inter-session continuity)
+        │   └── YYYY-MM-DD.md            # Daily logs (Indexed and reloaded)
         └── history/
             ├── conversation_history.json  # Rolling window (analyzed for tokens)
             └── history_summary.txt        # LLM-generated episodic summary
@@ -98,7 +121,7 @@ All files are plain UTF-8 Markdown. No binary formats, no serialization dependen
 
 ### Memory Flush: Self-Preservation Cycle
 
-In OpenBrain V2.0, the system prevents information loss through a proactive **Flush Cycle**. Before any conversational history is summarized (to save tokens), the engine triggers a silent **Flush Turn**:
+In OpenBrain V2.1, the system prevents information loss through a proactive **Flush Cycle**. Before any conversational history is summarized (to save tokens), the engine triggers a silent **Flush Turn**:
 
 1. The history chunk to be summarized is prepared.
 2. A silent prompt instructs the agent to identify all **Durable Facts** or **Temporary Journal Notes**.
@@ -172,7 +195,7 @@ User message (Telegram)
   soul + user + FULL_FACTS + RECENT_JOURNALS + summary + history + message
         │
         ▼
-[gemini -y -m <model>] ◄── stdin: context prompt
+[gemini -y -m gemini-3.0-flash-preview] ◄── stdin: context prompt
         │
         ▼
 [Parse response]

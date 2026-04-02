@@ -50,6 +50,9 @@ class Brain:
         if agent:
             try:
                 self.memory_index = MemoryIndex(agent.path)
+                # Déclencher l'indexation complète au démarrage/changement d'agent
+                self.memory_index.index_facts()
+                self.memory_index.index_journals()
             except Exception:
                 self.memory_index = None
 
@@ -262,12 +265,13 @@ Réponds en Français. Agis directement sur le système si nécessaire. Ne te r�
 """
         return context
 
-    def ask_gemini(self, prompt: str) -> str:
+    def ask_gemini(self, prompt: str, use_pro: bool = False) -> str:
         paths = self._get_paths()
+        model = config.GEMINI_PRO_MODEL if use_pro else config.GEMINI_MODEL
         try:
             # -y : YOLO (Approuve tous les outils)
             # --accept-raw-output-risk : Autorise les sorties potentiellement risquées (shell, file access)
-            result = subprocess.run(["gemini", "-y", "--accept-raw-output-risk", "-m", config.GEMINI_MODEL], input=prompt.encode('utf-8'), capture_output=True, timeout=300, cwd=str(paths["storage"]), env=os.environ)
+            result = subprocess.run(["gemini", "-y", "--accept-raw-output-risk", "-m", model], input=prompt.encode('utf-8'), capture_output=True, timeout=300, cwd=str(paths["storage"]), env=os.environ)
             if result.returncode != 0: return f"[ERREUR Gemini] {result.stderr.decode('utf-8', errors='ignore').strip()}"
             return result.stdout.decode('utf-8', errors='ignore').strip()
         except: return "[ERREUR] Gemini CLI error."
