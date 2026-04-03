@@ -98,23 +98,21 @@ OpenBrain prioritizes **Zero-Config Security**. Instead of requiring a static `G
 - **Project Mapping**: It identifies your active project from `~/.gemini/projects.json` to ensure correct quota allocation under your personal identity.
 - **REST Protocol**: REST API calls for embeddings are authenticated via standard `Authorization: Bearer` headers.
 
-### Filesystem Layout
+### Filesystem Layout (Obsidian-Ready V2.5)
 
 ```
 agents/
 └── <agent-name>/
-    ├── soul.md                          # Agent identity and mission
-    ├── user.md                          # User interaction protocol
-    ├── index.md                         # Knowledge base table of contents
-    └── memory/
-        ├── facts/
-        │   ├── <topic>.md               # One file per knowledge domain (Indexed by chunks)
-        │   └── progress.md              # Cross-agent readable progress file
-        ├── journal/
-        │   └── YYYY-MM-DD.md            # Daily logs (Indexed and reloaded)
-        └── history/
-            ├── conversation_history.json  # Rolling window (analyzed for tokens)
-            └── history_summary.txt        # LLM-generated episodic summary
+    ├── 📓 01 - Journal/
+    │   └── YYYY-MM-DD.md            # Entrées quotidiennes (Callouts Obsidian)
+    ├── 🧠 02 - Mémoire/
+    │   └── <topic>.md               # Faits durables (Wikilinks)
+    ├── ⚙️ 03 - Configuration/
+    │   ├── soul.md                  # Identité & Mission
+    │   ├── user.md                  # Protocole utilisateur
+    │   └── index.md                 # Carte du cerveau (Dashboard)
+    └── 04 - Archives/
+        └── history/                 # Historique JSON & Résumé
 ```
 
 All files are plain UTF-8 Markdown. No binary formats, no serialization dependencies.
@@ -147,10 +145,8 @@ On each inference call, the brain constructs a single text prompt by concatenati
 
 V2.1 ensures the agent "knows" what happened yesterday and has all its facts directly in mind via a weighted hybrid search, without having to manually search for them.
 
-### Token-Based Compaction
-
-History is no longer compressed based on a fixed message count (legacy limit: 20 turns). Compaction is now triggered by a **Token Budget**:
-- **Threshold**: ~8,000 tokens (estimated at 28,000 characters for French).
+History is no longer compressed based on a fixed message count. Compaction is now triggered by a **Token Budget**:
+- **Threshold**: ~1,500 tokens (Optimized for reactivity and quota).
 - **Persistence**: Preservation of the last 15 messages (fixed) ensures the immediate flow isn't broken.
 
 ---
@@ -195,7 +191,7 @@ User message (Telegram)
   soul + user + FULL_FACTS + RECENT_JOURNALS + summary + history + message
         │
         ▼
-[gemini -y -m gemini-3.0-flash-preview] ◄── stdin: context prompt
+[gemini -y -m gemini-3-flash-preview] ◄── stdin: context prompt
         │
         ▼
 [Parse response]

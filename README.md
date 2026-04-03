@@ -58,7 +58,7 @@ OpenBrain follows a **memory-centric, event-driven** architecture. The system is
 │  - Builds context: soul + user + Hybrid Search results      │
 │  - Invokes gemini-cli subprocess with OAuth identity        │
 │  - High-Fidelity Flush Cycle: save facts before compaction  │
-│  - Native support for Gemini 3.0 Flash & 3.1 Pro            │
+│  - Native support for Gemini 3 Flash & 3.1 Pro            │
 └─────────────────────────────────────────────────────────────┘
                          │
               ┌──────────┴──────────┐
@@ -66,14 +66,11 @@ OpenBrain follows a **memory-centric, event-driven** architecture. The system is
 ┌─────────────────────┐  ┌─────────────────────────────────┐
 │    Gemini CLI       │  │    Filesystem (Agent Memory)    │
 │  (subprocess.run)   │  │                                 │
-│  - Full YOLO mode   │  │  agents/<name>/                 │
-│  - Native file      │  │  ├── soul.md                    │
-│    access tools     │  │  ├── user.md                    │
-│  - Internet access  │  │  ├── index.md                   │
-│                     │  │  └── memory/                    │
-│                     │  │      ├── facts/                  │
-│                     │  │      ├── journal/ (J & J-1)      │
-│                     │  │      └── history/ (Summarized)   │
+│  - Native file      │  │  agents/<name>/                 │
+│    access tools     │  │  ├── 📓 01 - Journal/           │
+│  - Internet access  │  │  ├── 🧠 02 - Mémoire/           │
+│                     │  │  ├── ⚙️ 03 - Configuration/     │
+│                     │  │  └── 04 - Archives/              │
 └─────────────────────┘  └─────────────────────────────────┘
 ```
 
@@ -96,11 +93,10 @@ A hierarchical, plain-text store that evolves throughout the lifetime of the age
 
 | Path | Purpose |
 |------|---------|
-| `memory/facts/*.md` | Structured factual knowledge (High-fidelity content injection) |
-| `memory/journal/YYYY-MM-DD.md` | Daily record (Today and Yesterday are reloaded into context) |
-| `memory/history/conversation_history.json` | Rolling window of recent turns |
-| `memory/history/history_summary.txt` | LLM-generated summary (triggered by token-budget) |
-| `index.md` | Human-readable table of contents linking all facts |
+| `📓 01 - Journal/` | Daily episodic records (Obsidian Callouts & YAML) |
+| `🧠 02 - Mémoire/*.md` | Long-term factual knowledge (Wikilinks enabled) |
+| `⚙️ 03 - Configuration/` | AI Identity (`soul.md`, `user.md`, `index.md`) |
+| `04 - Archives/` | Technical history and rolling JSON storage |
 
 ---
 

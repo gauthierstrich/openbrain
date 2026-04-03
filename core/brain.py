@@ -66,15 +66,18 @@ class Brain:
     def _get_paths(self):
         agent = self.get_active_agent()
         if not agent: raise BrainError("Aucun agent actif.")
-        mem_dir = agent.path / "memory"
+        
+        # Structure Obsidian Premium (V2.5)
         return {
-            "index": agent.path / "index.md",
-            "soul": agent.path / "soul.md",
-            "user": agent.path / "user.md",
-            "history": mem_dir / "history" / "conversation_history.json",
-            "summary": mem_dir / "history" / "history_summary.txt",
-            "journal": mem_dir / "journal",
-            "facts": mem_dir / "facts",
+            "journal": agent.path / "📓 01 - Journal",
+            "facts": agent.path / "🧠 02 - Mémoire",
+            "config": agent.path / "⚙️ 03 - Configuration",
+            "index": agent.path / "⚙️ 03 - Configuration" / "index.md",
+            "soul": agent.path / "⚙️ 03 - Configuration" / "soul.md",
+            "user": agent.path / "⚙️ 03 - Configuration" / "user.md",
+            "history_dir": agent.path / "04 - Archives" / "history",
+            "history": agent.path / "04 - Archives" / "history" / "conversation_history.json",
+            "summary": agent.path / "04 - Archives" / "history" / "history_summary.txt",
             "storage": agent.path
         }
 
@@ -98,8 +101,13 @@ class Brain:
         j_dir.mkdir(parents=True, exist_ok=True)
         log_file = j_dir / f"{today}.md"
         timestamp = datetime.now().strftime("%H:%M")
-        entry = f"\n### [{timestamp}]\n**{config.USER_NAME} :** {user_msg}\n\n**Agent :** {agent_msg}\n"
-        if not log_file.exists(): log_file.write_text(f"# Journal du {today}\n", encoding="utf-8")
+        
+        # Style Obsidian (V2.5) : YAML + Callouts
+        if not log_file.exists(): 
+            header = f"---\ntype: journal\ndate: {today}\ntags: [journal, openbrain]\n---\n# 📓 Journal du {today}\n"
+            log_file.write_text(header, encoding="utf-8")
+            
+        entry = f"\n> [!CHAT] {timestamp}\n> **{config.USER_NAME} :** {user_msg}\n>\n> **Agent :** {agent_msg}\n"
         with open(log_file, "a", encoding="utf-8") as f: f.write(entry)
 
     # ─── OpenClaw P0 : Chargement des journaux récents (J et J-1) ─────
@@ -157,10 +165,10 @@ class Brain:
 
     # ─── OpenClaw P0 : Memory Flush (sauvegarde avant compaction) ─────
     def _memory_flush(self, history_to_flush: list):
-        """Avant compaction : demander à Gemini de sauvegarder les faits importants.
-        Inspiré du mécanisme flush-plan.ts d'OpenClaw."""
+        """Avant compaction : demander à Gemini de sauvegarder les faits importants."""
         if not history_to_flush:
             return
+        agent = self.get_active_agent()
         paths = self._get_paths()
         text_block = "\n".join(
             f"{config.USER_NAME}: {ex['user']}\nAgent: {ex['agent']}"
@@ -169,21 +177,18 @@ class Brain:
         today = datetime.now().strftime("%Y-%m-%d")
         flush_prompt = f"""[MEMORY FLUSH — Tour silencieux pré-compaction]
 
-La conversation ci-dessous va être résumée et les détails seront perdus.
-Ton rôle : identifier les FAITS IMPORTANTS, DURABLES ou UTILES et les sauvegarder
-dans tes fichiers de mémoire AVANT qu'ils ne disparaissent.
-
-[RÈGLES]
-1. Sauvegarde les faits durables dans memory/facts/ (crée ou complète des fichiers .md).
-2. Sauvegarde les notes éphémères dans memory/journal/{today}.md (APPEND uniquement).
-3. Ne modifie JAMAIS soul.md, index.md ou user.md pendant un flush.
-4. Si rien d'important à sauvegarder, ne fais rien.
-5. N'écris AUCUNE réponse textuelle. Agis uniquement sur les fichiers.
-
-[CONVERSATION À ANALYSER]
-{text_block}
+La conversation ci-dessous va être résumée. Identifie les FAITS DURABLES et sauvegarde-les.
+[FORMAT OBSIDIAN]
+Chaque fichier de fait DOIT commencer par :
+---
+type: fait
+tags: [memoire, {agent.name}]
+updated: {today}
+---
+# 🧠 Fait : <Titre>
+Puis le contenu. Utilise des [[Wikilinks]] si tu mentionnes d'autres sujets.
 """
-        # Appel silencieux — on ignore le retour texte, seule l'écriture fichier compte
+        # Appel silencieux
         self.ask_gemini(flush_prompt)
 
     def _summarize_history(self, history: list) -> list:
@@ -253,9 +258,12 @@ dans tes fichiers de mémoire AVANT qu'ils ne disparaissent.
 [CAPACITÉS NATIVES]
 Tu es exécuté via le Gemini CLI avec accès complet au système.
 Tu peux LIRE, ÉCRIRE, MODIFIER et SUPPRIMER des fichiers sur cette machine.
-Pour mémoriser un fait important, écris-le dans memory/facts/<sujet>.md.
-Pour les notes temporaires, ajoute-les dans memory/journal/{datetime.now().strftime('%Y-%m-%d')}.md.
-Si {config.USER_NAME} te demande de prendre en compte un dossier extérieur, utilise tes outils natifs pour l'explorer et extraire les infos importantes vers tes propres fichiers dans {paths['facts']}.
+
+⚠️ SÉCURITÉ CRITIQUE : Pour toute modification d'un fichier Python (.py), tu DOIS impérativement utiliser le protocole de validation suivant :
+1. Écris tes modifications dans un fichier temporaire (ex: /tmp/fix.py).
+2. Vérifie la syntaxe avec la commande : `python3 core/code_guard.py --target <chemin_cible> --source /tmp/fix.py`
+3. Si la commande échoue, analyse l'erreur de syntaxe fournie et recommence dans /tmp/fix.py.
+Interdiction formelle de modifier un fichier .py directement avec `sed` ou au-dessus du fichier original sans cette validation.
 
 [MESSAGE DE {config.USER_NAME}]
 {user_message}

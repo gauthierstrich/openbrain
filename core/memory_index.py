@@ -383,10 +383,10 @@ class MemoryIndex:
         return report
 
     def index_facts(self) -> dict:
-        return self._index_directory(self.facts_dir, "facts")
+        return self._index_directory(self.agent_path / "🧠 02 - Mémoire", "facts")
 
     def index_journals(self) -> dict:
-        return self._index_directory(self.agent_path / "memory" / "journal", "journal")
+        return self._index_directory(self.agent_path / "📓 01 - Journal", "journal")
 
     # ─── Recherche hybride ───────────────────────────────────────────
 

@@ -39,48 +39,50 @@ class AgentCreator:
         try:
             tmp_dir.mkdir(parents=True, exist_ok=True)
             
-            # 1. Structure mémoire vide (aucune référence à un prénom spécifique)
-            mem_dir = tmp_dir / "memory"
-            for d in ["history", "journal", "facts"]:
-                (mem_dir / d).mkdir(parents=True, exist_ok=True)
-            (mem_dir / "history" / "conversation_history.json").write_text("[]", encoding="utf-8")
-            (mem_dir / "history" / "history_summary.txt").write_text("", encoding="utf-8")
-            (mem_dir / "facts" / "progress.md").write_text("# Suivi\n", encoding="utf-8")
+            # 1. Structure Obsidian Premium (V2.5)
+            dirs = {
+                "journal": tmp_dir / "📓 01 - Journal",
+                "memory": tmp_dir / "🧠 02 - Mémoire",
+                "config": tmp_dir / "⚙️ 03 - Configuration",
+                "archives": tmp_dir / "04 - Archives" / "history"
+            }
+            for d in dirs.values(): d.mkdir(parents=True, exist_ok=True)
             
-            # 2. index.md générique
+            (dirs["archives"] / "conversation_history.json").write_text("[]", encoding="utf-8")
+            (dirs["archives"] / "history_summary.txt").write_text("", encoding="utf-8")
+            (dirs["memory"] / "progress.md").write_text("# 📈 Suivi de Progression\n", encoding="utf-8")
+            
+            # 2. Configuration (Soul, Index, User)
             now_iso = datetime.now().isoformat(timespec='seconds')
             index_content = f"""---
+type: dashboard
 name: "{name.capitalize()}"
 emoji: "{emoji}"
-type: "{type_str}"
-version: "1.0"
 created: "{now_iso}"
 ---
 
-# 🧠 Index de l'Expert : {name.capitalize()}
+# 🧠 Dashboard Expert : {name.capitalize()} {emoji}
 
-Ceci est le point d'entrée de ma mémoire. En tant qu'expert, j'ai pour instruction d'enrichir cette mémoire automatiquement (YOLO Mode) lors de mes échanges avec l'utilisateur, en créant des sous-fichiers dans `memory/facts/`.
+Ceci est mon centre de contrôle. En tant qu'expert, j'enrichis ma mémoire automatiquement dans le dossier `🧠 02 - Mémoire/`.
 
-- **Soul** : `soul.md` (Mon identité)
-- **User** : `user.md` (Directives d'interaction de l'utilisateur)
-- **Files** : *(Je remplirai cette liste de fichiers factuels dynamiquement via UPDATE_INDEX et SAVE_FACT)*
+- **Identité** : `soul.md`
+- **Préférences** : `user.md`
+- **Journal** : `[[📓 01 - Journal/]]`
+- **Base de Connaissances** : `[[🧠 02 - Mémoire/]]`
 """
-            (tmp_dir / "index.md").write_text(index_content, encoding="utf-8")
+            (dirs["config"] / "index.md").write_text(index_content, encoding="utf-8")
 
-            # 3. soul.md (DNA / Identité) avec consignes YOLO imposées
+            # 3. soul.md (DNA / Identité) 
             soul_yolo_content = soul_content + f"""
 
-## 🤫 GESTION DE LA MÉMOIRE (YOLO MODE)
-Tu disposes d'un pouvoir d'écriture silencieux. Ne DEmande JAMAIS LA PERMISSION d'écrire.
-Dès que l'utilisateur t'informe d'un fait important (loisir, projet, vie, code, etc.), tu DOIS utiliser cette commande pour le sauvegarder silencieusement en arrière-plan (sans inclure la balise dans le texte adressé à l'utilisateur):
-- `[SYSTEM:SAVE_FACT file="nom_du_sujet.md" content="le contenu à sauvegarder..."]`
-- `[SYSTEM:UPDATE_INDEX content="...réécriture de tout le fichier index.md pour inclure les nouveaux liens vers facts/nom_du_sujet.md..."]`
-Exécute ces commandes pour construire ton cerveau.
+## 🤫 GESTION DE LA MÉMOIRE (YOLO MODE V2.5)
+Tu es un agent Obsidian-Ready. Toute information importante sur {config.USER_NAME} ou tes progrès doit être sauvegardée :
+- `[SYSTEM:SAVE_FACT file="02 - Mémoire/nom_sujet.md" content="..."]`
+- `[SYSTEM:UPDATE_INDEX content="..."]`
+Utilise des [[Wikilinks]] pour connecter tes notes.
 """
-            (tmp_dir / "soul.md").write_text(soul_yolo_content, encoding="utf-8")
-
-            # 4. user.md (Préférences d'interaction)
-            (tmp_dir / "user.md").write_text(user_content, encoding="utf-8")
+            (dirs["config"] / "soul.md").write_text(soul_yolo_content, encoding="utf-8")
+            (dirs["config"] / "user.md").write_text(user_content, encoding="utf-8")
             
             # 5. Atomic swap
             if target_dir.exists(): shutil.rmtree(target_dir)

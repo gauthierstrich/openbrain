@@ -78,6 +78,9 @@ class BotSupervisor:
         print(f"✨ OpenBrain Supervisor V1.0 - Racine : {ROOT}")
         self.start_bots()
         
+        # État pour la détection de crash loops
+        restart_tracking = {}  # agent_name -> [timestamps]
+        
         while self.running:
             # Vérifier si un signal de redémarrage est présent
             if RESTART_SIGNAL.exists():
@@ -90,7 +93,22 @@ class BotSupervisor:
             # Vérifier la santé des processus
             for name, p in list(self.processes.items()):
                 if p.poll() is not None:
-                    print(f"⚠️ Agent {name} s'est arrêté. Relancement imminent...")
+                    # Gestion du crash loop
+                    now = time.time()
+                    history = restart_tracking.get(name, [])
+                    # Garder seulement les restarts des 120 dernières secondes
+                    history = [t for t in history if now - t < 120]
+                    history.append(now)
+                    restart_tracking[name] = history
+                    
+                    if len(history) >= 3:
+                        print(f"\n❌ [CRITICAL] L'agent '{name}' est en boucle de crash (3 échecs en <120s).")
+                        print(f"👉 Cause probable : Erreur de syntaxe ou jeton invalide.")
+                        print(f"🛑 Arrêt de sécurité du superviseur pour éviter la saturation.")
+                        self.stop_bots()
+                        sys.exit(1)
+                        
+                    print(f"⚠️ Agent {name} s'est arrêté. Relancement imminent ({len(history)}/3)...")
                     self.start_bots()
             
             time.sleep(3)
