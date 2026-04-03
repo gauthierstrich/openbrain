@@ -84,27 +84,37 @@ class AgentLoader:
         return agents
 
     def auto_repair_v1_2(self, agent_path: Path):
-        """Assure la présence des 4 piliers (Index, Soul, User, Memory)."""
-        # Soul pilier (DNA)
-        soul_file = agent_path / "soul.md"
-        if not soul_file.exists():
-            soul_file.write_text("# DNA\nInstructions par défaut.", encoding="utf-8")
+        """Assure la présence de la structure Obsidian V2.5."""
+        # 1. Dossiers piliers (Obsidian V2.5)
+        (agent_path / "📓 01 - Journal").mkdir(parents=True, exist_ok=True)
+        (agent_path / "🧠 02 - Mémoire").mkdir(parents=True, exist_ok=True)
+        (agent_path / "⚙️ 03 - Configuration").mkdir(parents=True, exist_ok=True)
+        (agent_path / "04 - Archives/history").mkdir(parents=True, exist_ok=True)
 
-        # User pilier
-        user_file = agent_path / "user.md"
+        # 2. Fichiers de configuration
+        soul_file = agent_path / "⚙️ 03 - Configuration" / "soul.md"
+        if not soul_file.exists():
+            # Migration depuis la racine si nécessaire
+            old_soul = agent_path / "soul.md"
+            if old_soul.exists():
+                old_soul.rename(soul_file)
+            else:
+                soul_file.write_text("# Soul\nInstructions de l'agent.", encoding="utf-8")
+
+        user_file = agent_path / "⚙️ 03 - Configuration" / "user.md"
         if not user_file.exists():
-            user_file.write_text("# Préférences Utilisateur\nPar défaut, utilise le profil global.", encoding="utf-8")
+            old_user = agent_path / "user.md"
+            if old_user.exists():
+                old_user.rename(user_file)
+            else:
+                user_file.write_text("# Préférences\nTutoiement.", encoding="utf-8")
             
-        # Memory pilier
-        mem_dir = agent_path / "memory"
-        for d in ["history", "journal", "facts"]:
-            (mem_dir / d).mkdir(parents=True, exist_ok=True)
-            
-        hist_file = mem_dir / "history" / "conversation_history.json"
+        # 3. Archives
+        hist_file = agent_path / "04 - Archives" / "history" / "conversation_history.json"
         if not hist_file.exists():
             hist_file.write_text("[]", encoding="utf-8")
             
-        sum_file = mem_dir / "history" / "history_summary.txt"
+        sum_file = agent_path / "04 - Archives" / "history" / "history_summary.txt"
         if not sum_file.exists():
             sum_file.write_text("", encoding="utf-8")
 

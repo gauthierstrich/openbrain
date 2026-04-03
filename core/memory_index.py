@@ -252,8 +252,9 @@ class MemoryIndex:
             agent_path: Chemin racine de l'agent (ex: agents/personal/)
         """
         self.agent_path = agent_path
-        self.facts_dir = agent_path / "memory" / "facts"
-        self.db_path = agent_path / "memory" / "memory_index.db"
+        self.facts_dir = agent_path / "🧠 02 - Mémoire"
+        self.journal_dir = agent_path / "📓 01 - Journal"
+        self.db_path = agent_path / "04 - Archives" / "memory_index.db"
         self._conn: Optional[sqlite3.Connection] = None
         self._ensure_schema()
 
@@ -383,10 +384,10 @@ class MemoryIndex:
         return report
 
     def index_facts(self) -> dict:
-        return self._index_directory(self.agent_path / "🧠 02 - Mémoire", "facts")
+        return self._index_directory(self.facts_dir, "facts")
 
     def index_journals(self) -> dict:
-        return self._index_directory(self.agent_path / "📓 01 - Journal", "journal")
+        return self._index_directory(self.journal_dir, "journal")
 
     # ─── Recherche hybride ───────────────────────────────────────────
 

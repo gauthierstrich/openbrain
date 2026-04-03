@@ -21,10 +21,10 @@ fi
 
 # 2. Setup
 echo -e "\n📝 Configuration Onboarding"
-echo -e "Pour commencer, tu as besoin d'un Token Bot (@BotFather) pour ton Architecte."
-
+read -p "👋 Comment t'appelles-tu ? : " USER_NAME
 read -p "👤 Ton ID Telegram (ex: 123456) : " ALLOWED_USER_ID
-read -p "🔑 Token de l'Architecte : " ARCH_TOKEN
+echo -e "\n🔑 Pour commencer, tu as besoin d'un Token Bot (@BotFather) pour ton Architecte."
+read -p "Token de l'Architecte : " ARCH_TOKEN
 
 DEFAULT_STORAGE="$HOME/Documents/OpenBrain"
 read -p "📂 Où stocker ton Second Cerveau ? [$DEFAULT_STORAGE] : " RAW_STORAGE
@@ -37,11 +37,18 @@ mkdir -p "$STORAGE_PATH/agents"
 mkdir -p "$STORAGE_PATH/identity"
 cp -R "$DIR/template/identity/"* "$STORAGE_PATH/identity/"
 
-# 4. Installation de l'Architecte
+# 4. Personnalisation immédiate du profil global
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  sed -i '' "s/{{USER_NAME}}/$USER_NAME/g" "$STORAGE_PATH/identity/user.md"
+else
+  sed -i "s/{{USER_NAME}}/$USER_NAME/g" "$STORAGE_PATH/identity/user.md"
+fi
+
+# 5. Installation de l'Architecte
 echo "Injecting Architect DNA..."
 cp -R "$DIR/template/agents/architect" "$STORAGE_PATH/agents/"
 
-# 5. Env setup
+# 6. Env setup
 cat > "$DIR/.env" << ENVFILE
 GEMINI_MODEL=gemini-3-flash-preview
 USER_LANGUAGE=fr
@@ -50,16 +57,16 @@ ALLOWED_USER_ID=$ALLOWED_USER_ID
 TELEGRAM_TOKEN_ARCHITECT=$ARCH_TOKEN
 ENVFILE
 
-# 6. Obsidian Starter
+# 7. Obsidian Starter
 mkdir -p "$STORAGE_PATH/.obsidian"
 cp -R "$DIR/.obsidian_starter/"* "$STORAGE_PATH/.obsidian/"
 
-# 7. Deps
+# 8. Deps
 echo -e "\n📦 Installation des librairies..."
 pip3 install -r "$DIR/requirements.txt" --quiet
 
 echo -e "\n${GREEN}✨ CONFIGURATION TERMINÉE ! ✨${NC}"
-echo -e "Le terminal est maintenant inutile."
+echo -e "Merci $USER_NAME. Le terminal est maintenant inutile."
 echo -e "${CYAN}👉 Lance cette commande pour activer ton OS :${NC}"
 echo -e "python3 scripts/ob-start.py"
 echo -e "\nOuvre ensuite Telegram et envoie /start à ton Architecte."
